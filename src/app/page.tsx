@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -27,11 +26,9 @@ export default function HomePage() {
 
   return (
     <div className="bg-white text-gray-900">
-
       {/* Hero Section */}
       <section className="bg-blue-50">
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-6 py-20 md:grid-cols-2 md:py-28">
-
           <div>
             <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-600">
               Discover Something New
@@ -39,15 +36,12 @@ export default function HomePage() {
 
             <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight md:text-6xl">
               Shop Smarter.
-              <span className="block text-blue-600">
-                Live Better.
-              </span>
+              <span className="block text-blue-600">Live Better.</span>
             </h1>
 
             <p className="mt-6 max-w-lg text-lg leading-8 text-gray-600">
-              Discover amazing products, unbeatable deals,
-              and everything you need in one place.
-              Your perfect shopping experience starts here.
+              Discover amazing products, unbeatable deals, and everything you
+              need in one place. Your perfect shopping experience starts here.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
@@ -98,12 +92,9 @@ export default function HomePage() {
 
             <div className="absolute -bottom-5 -left-4 rounded-2xl bg-white p-5 shadow-lg md:-left-8">
               <p className="text-sm text-gray-500">Special Offer</p>
-              <p className="text-2xl font-bold text-blue-600">
-                Up to 40% OFF
-              </p>
+              <p className="text-2xl font-bold text-blue-600">Up to 40% OFF</p>
             </div>
           </div>
-
         </div>
       </section>
 
@@ -111,9 +102,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-6 py-20">
         <div className="mb-10 flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">
-              Shop by Category
-            </h2>
+            <h2 className="text-3xl font-bold">Shop by Category</h2>
             <p className="mt-2 text-gray-500">
               Find exactly what you're looking for.
             </p>
@@ -135,9 +124,7 @@ export default function HomePage() {
               className="rounded-2xl border border-gray-100 bg-gray-50 p-8 text-center transition hover:-translate-y-1 hover:border-blue-200 hover:bg-blue-50"
             >
               <span className="text-4xl">{category.icon}</span>
-              <h3 className="mt-4 font-semibold">
-                {category.name}
-              </h3>
+              <h3 className="mt-4 font-semibold">{category.name}</h3>
             </Link>
           ))}
         </div>
@@ -146,15 +133,12 @@ export default function HomePage() {
       {/* Featured Products */}
       <section className="bg-gray-50 py-20">
         <div className="mx-auto max-w-7xl px-6">
-
           <div className="mb-10 flex items-center justify-between">
             <div>
               <span className="font-semibold text-blue-600">
                 OUR COLLECTION
               </span>
-              <h2 className="mt-2 text-3xl font-bold">
-                Featured Products
-              </h2>
+              <h2 className="mt-2 text-3xl font-bold">Featured Products</h2>
               <p className="mt-2 text-gray-500">
                 Handpicked products just for you.
               </p>
@@ -175,36 +159,37 @@ export default function HomePage() {
                 className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition hover:-translate-y-1 hover:shadow-xl"
               >
                 <div className="relative overflow-hidden bg-gray-100">
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    width={600}
-                    height={600}
-                    unoptimized
-                    className="h-64 w-full object-cover transition duration-500 group-hover:scale-105"
-                  />
+                  <Link href={`/shop/${product.id}`}>
+                    <Image
+                      src={product.image}
+                      alt={product.name}
+                      width={600}
+                      height={600}
+                      unoptimized
+                      className="h-64 w-full object-cover transition duration-500 group-hover:scale-105"
+                    />
 
-                  {product.isSale && (
-                    <span className="absolute left-4 top-4 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
-                      SALE
-                    </span>
-                  )}
+                    {product.isSale && (
+                      <span className="absolute left-4 top-4 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white">
+                        SALE
+                      </span>
+                    )}
 
-                  {product.isNew && (
-                    <span className="absolute left-4 top-4 rounded-full bg-blue-600 px-3 py-1 text-xs font-bold text-white">
-                      NEW
-                    </span>
-                  )}
+                    {product.isNew && (
+                      <span className="absolute left-4 top-4 rounded-full bg-blue-600 px-3 py-1 text-xs font-bold text-white">
+                        NEW
+                      </span>
+                    )}
+                  </Link>
                 </div>
 
                 <div className="p-5">
-                  <p className="text-sm text-gray-400">
-                    {product.category}
-                  </p>
+                  <p className="text-sm text-gray-400">{product.category}</p>
 
-                  <h3 className="mt-1 text-lg font-bold">
-                    {product.name}
-                  </h3>
+                  <Link href={`/shop/${product.id}`}>
+                    {" "}
+                    <h3 className="mt-1 text-lg font-bold">{product.name}</h3>
+                  </Link>
 
                   <div className="mt-2 flex items-center gap-1">
                     <Star
@@ -255,9 +240,7 @@ export default function HomePage() {
           </div>
           <div>
             <h3 className="font-bold">Free Shipping</h3>
-            <p className="text-sm text-gray-500">
-              On orders over $100
-            </p>
+            <p className="text-sm text-gray-500">On orders over $100</p>
           </div>
         </div>
 
@@ -267,9 +250,7 @@ export default function HomePage() {
           </div>
           <div>
             <h3 className="font-bold">Secure Payment</h3>
-            <p className="text-sm text-gray-500">
-              Safe and secure checkout
-            </p>
+            <p className="text-sm text-gray-500">Safe and secure checkout</p>
           </div>
         </div>
 
@@ -279,13 +260,10 @@ export default function HomePage() {
           </div>
           <div>
             <h3 className="font-bold">24/7 Support</h3>
-            <p className="text-sm text-gray-500">
-              We're always here to help
-            </p>
+            <p className="text-sm text-gray-500">We're always here to help</p>
           </div>
         </div>
       </section>
-
     </div>
   );
 }

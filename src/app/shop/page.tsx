@@ -14,6 +14,7 @@ import {
 
 import { products } from "@/data/products";
 import { useCart } from "@/context/CartContext";
+import Link from "next/link";
 
 function ShopContent() {
   const router = useRouter();
@@ -34,7 +35,7 @@ function ShopContent() {
       "All",
       ...Array.from(new Set(products.map((product) => product.category))),
     ],
-    []
+    [],
   );
 
   // Convert category names into URL-friendly slugs
@@ -44,7 +45,7 @@ function ShopContent() {
   // Find the currently selected category
   const activeCategory =
     categories.find(
-      (item) => getCategorySlug(item) === selectedCategory?.toLowerCase()
+      (item) => getCategorySlug(item) === selectedCategory?.toLowerCase(),
     ) || "All";
 
   // Change category and update URL
@@ -68,7 +69,7 @@ function ShopContent() {
       result = result.filter(
         (product) =>
           product.name.toLowerCase().includes(searchTerm) ||
-          product.category.toLowerCase().includes(searchTerm)
+          product.category.toLowerCase().includes(searchTerm),
       );
     }
 
@@ -76,8 +77,7 @@ function ShopContent() {
     if (selectedCategory) {
       result = result.filter(
         (product) =>
-          getCategorySlug(product.category) ===
-          selectedCategory.toLowerCase()
+          getCategorySlug(product.category) === selectedCategory.toLowerCase(),
       );
     }
 
@@ -109,9 +109,7 @@ function ShopContent() {
     setAddedProduct(product.id);
 
     window.setTimeout(() => {
-      setAddedProduct((current) =>
-        current === product.id ? null : current
-      );
+      setAddedProduct((current) => (current === product.id ? null : current));
     }, 1500);
   };
 
@@ -125,28 +123,46 @@ function ShopContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero */}
-      <section className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
-          <p className="text-blue-200 font-semibold uppercase tracking-widest text-sm mb-3">
-            Discover something amazing
+      <section className="bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-20">
+          {/* Breadcrumb */}
+          <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
+            <Link href="/" className="hover:text-blue-600">
+              Home
+            </Link>
+            <span>/</span>
+            <span className="text-gray-900">Shop</span>
+          </div>
+
+          {/* Eyebrow */}
+          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-blue-600">
+            Discover Something Amazing
           </p>
 
-          <h1 className="text-4xl md:text-5xl font-bold mb-5">
-            Explore Our Shop
+          {/* Heading */}
+          <h1 className="max-w-2xl text-4xl font-bold tracking-tight text-gray-900 md:text-6xl">
+            Explore Our
+            <span className="text-blue-600"> Shop.</span>
           </h1>
 
-          <p className="text-blue-100 max-w-xl text-lg">
-            Find your favorite products, discover new arrivals, and enjoy
-            shopping with ShopEase.
+          {/* Description */}
+          <p className="mt-6 max-w-xl leading-relaxed text-gray-500">
+            Find your favorite products, discover new arrivals, and enjoy a
+            seamless shopping experience with ShopEase.
           </p>
 
-          <div className="mt-8 flex items-center gap-3 text-sm">
+          {/* Additional Info */}
+          <div className="mt-8 flex flex-wrap items-center gap-4 text-sm text-gray-500">
             <span className="flex items-center gap-2">
-              <ShoppingBag size={18} />
-              {products.length} Products
+              <ShoppingBag size={18} className="text-blue-600" />
+              <span className="font-semibold text-gray-900">
+                {products.length}
+              </span>
+              Products
             </span>
 
-            <span className="text-blue-300">|</span>
+            <span className="text-gray-300">|</span>
+
             <span>Quality you can trust</span>
           </div>
         </div>
@@ -158,9 +174,7 @@ function ShopContent() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
-              {activeCategory === "All"
-                ? "All Products"
-                : activeCategory}
+              {activeCategory === "All" ? "All Products" : activeCategory}
             </h2>
 
             <p className="text-gray-500 mt-1">
@@ -176,7 +190,6 @@ function ShopContent() {
           >
             <ShoppingBag size={19} />
             View Cart
-
             <span className="bg-blue-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
               {cartCount}
             </span>
@@ -286,8 +299,12 @@ function ShopContent() {
                 key={product.id}
                 className="group bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition duration-300"
               >
-                {/* Image */}
-                <div className="relative aspect-square bg-gray-100 overflow-hidden">
+                {/* Clickable Product Image */}
+                <Link
+                  href={`/shop/${product.id}`}
+                  className="block relative aspect-square bg-gray-100 overflow-hidden"
+                  aria-label={`View ${product.name}`}
+                >
                   <img
                     src={product.image}
                     alt={product.name}
@@ -305,7 +322,7 @@ function ShopContent() {
                       SALE
                     </span>
                   )}
-                </div>
+                </Link>
 
                 {/* Details */}
                 <div className="p-5">
@@ -313,9 +330,12 @@ function ShopContent() {
                     {product.category}
                   </p>
 
-                  <h3 className="font-semibold text-gray-900 text-lg truncate mb-2">
-                    {product.name}
-                  </h3>
+                  {/* Clickable Product Name */}
+                  <Link href={`/shop/${product.id}`}>
+                    <h3 className="font-semibold text-gray-900 text-lg truncate mb-2">
+                      {product.name}
+                    </h3>
+                  </Link>
 
                   {/* Rating */}
                   <div className="flex items-center gap-1 mb-4">

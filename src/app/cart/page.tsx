@@ -115,7 +115,7 @@ export default function CartPage() {
                     ${item.product.price.toFixed(2)}
                   </p>
 
-                  <div className="mt-4 flex items-center gap-3">
+                  <div className="mt-4 flex items-center gap-3 text-gray-500">
 
                     <button
                       onClick={() =>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
+import { useFavorites } from "@/context/FavoriteContext";
 import { ShoppingCart, Search, Menu, X, User, Heart } from "lucide-react";
 
 const navLinks = [
@@ -14,9 +15,11 @@ const navLinks = [
 ];
 
 
+
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { cartCount } = useCart();
+  const { favorites } = useFavorites();
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
@@ -50,11 +53,17 @@ export default function Navbar() {
             </button>
 
             <Link
-              href="/wishlist"
-              aria-label="Wishlist"
-              className="text-gray-700 hover:text-blue-600"
+              href="/favorites"
+              aria-label="My favorites"
+              className="relative text-gray-700 hover:text-red-500"
             >
               <Heart size={21} />
+
+              {favorites.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {favorites.length}
+                </span>
+              )}
             </Link>
 
             <Link
@@ -106,7 +115,7 @@ export default function Navbar() {
             ))}
 
             <div className="flex gap-5 pt-3 border-t">
-              <Link href="/wishlist" onClick={() => setIsOpen(false)}>
+              <Link href="/favorites" onClick={() => setIsOpen(false)}>
                 <Heart size={21} />
               </Link>
               <Link href="/cart" onClick={() => setIsOpen(false)}>
