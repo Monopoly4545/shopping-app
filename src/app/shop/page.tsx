@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Search,
   ShoppingBag,
@@ -12,12 +12,12 @@ import {
   Check,
 } from "lucide-react";
 
-import { products } from "@/data/products";
-import { useCart } from "@/context/CartContext";
 import Link from "next/link";
+import { products } from "@/data/products";
+import { categories } from "@/data/categories";
+import { useCart } from "@/context/CartContext";
 
 function ShopContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const { addToCart, cartCount } = useCart();
@@ -26,37 +26,49 @@ function ShopContent() {
   const [sort, setSort] = useState("featured");
   const [addedProduct, setAddedProduct] = useState<number | null>(null);
 
-  // Read category from the URL
-  const selectedCategory = searchParams.get("category");
-
-  // Get all available categories
-  const categories = useMemo(
-    () => [
-      "All",
-      ...Array.from(new Set(products.map((product) => product.category))),
-    ],
-    [],
+  // Get initial category from URL
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    searchParams.get("category")
   );
 
-  // Convert category names into URL-friendly slugs
-  const getCategorySlug = (value: string) =>
-    value.toLowerCase().trim().replace(/\s+/g, "-");
+  // Keep category state synchronized with browser Back/Forward
+  useEffect(() => {
+    const handlePopState = () => {
+      setSelectedCategory(
+        new URLSearchParams(window.location.search).get("category")
+      );
+    };
 
-  // Find the currently selected category
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  // Find selected category
   const activeCategory =
-    categories.find(
-      (item) => getCategorySlug(item) === selectedCategory?.toLowerCase(),
-    ) || "All";
+    categories.find((category) => category.slug === selectedCategory) ?? null;
 
-  // Change category and update URL
-  const handleCategoryChange = (newCategory: string) => {
-    if (newCategory === "All") {
-      router.push("/shop");
-      return;
+  // Change category without page navigation
+  const handleCategoryChange = (slug: string | null) => {
+    setSelectedCategory(slug);
+
+    const url = new URL(window.location.href);
+
+    if (slug) {
+      url.searchParams.set("category", slug);
+    } else {
+      url.searchParams.delete("category");
     }
 
-    router.push(`/shop?category=${getCategorySlug(newCategory)}`);
+    // Update URL without refreshing the page
+    window.history.pushState(null, "", url);
   };
+
+  // Normalize category names for matching
+  const normalizeCategory = (value: string) =>
+    value.toLowerCase().trim().replace(/&/g, "and").replace(/\s+/g, "-");
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
@@ -64,21 +76,31 @@ function ShopContent() {
 
     // Search products
     if (search.trim()) {
-      const searchTerm = search.toLowerCase();
+      const searchTerm = search.trim().toLowerCase();
 
       result = result.filter(
         (product) =>
           product.name.toLowerCase().includes(searchTerm) ||
-          product.category.toLowerCase().includes(searchTerm),
+          product.category.toLowerCase().includes(searchTerm)
       );
     }
 
-    // Filter by URL category
+    // Filter by selected category
     if (selectedCategory) {
-      result = result.filter(
-        (product) =>
-          getCategorySlug(product.category) === selectedCategory.toLowerCase(),
+      const category = categories.find(
+        (item) => item.slug === selectedCategory
       );
+
+      if (category) {
+        result = result.filter(
+          (product) =>
+            normalizeCategory(product.category) ===
+              normalizeCategory(category.name) ||
+            normalizeCategory(product.category) === category.slug
+        );
+      } else {
+        result = [];
+      }
     }
 
     // Sort products
@@ -98,6 +120,9 @@ function ShopContent() {
       case "name":
         result.sort((a, b) => a.name.localeCompare(b.name));
         break;
+
+      default:
+        break;
     }
 
     return result;
@@ -109,15 +134,17 @@ function ShopContent() {
     setAddedProduct(product.id);
 
     window.setTimeout(() => {
-      setAddedProduct((current) => (current === product.id ? null : current));
+      setAddedProduct((current) =>
+        current === product.id ? null : current
+      );
     }, 1500);
   };
 
-  // Clear all filters
+  // Clear all filters without refreshing
   const clearFilters = () => {
     setSearch("");
     setSort("featured");
-    router.push("/shop");
+    handleCategoryChange(null);
   };
 
   return (
@@ -130,7 +157,9 @@ function ShopContent() {
             <Link href="/" className="hover:text-blue-600">
               Home
             </Link>
+
             <span>/</span>
+
             <span className="text-gray-900">Shop</span>
           </div>
 
@@ -155,9 +184,11 @@ function ShopContent() {
           <div className="mt-8 flex flex-wrap items-center gap-4 text-sm text-gray-500">
             <span className="flex items-center gap-2">
               <ShoppingBag size={18} className="text-blue-600" />
+
               <span className="font-semibold text-gray-900">
                 {products.length}
               </span>
+
               Products
             </span>
 
@@ -169,36 +200,39 @@ function ShopContent() {
       </section>
 
       {/* Shop */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         {/* Heading */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
-              {activeCategory === "All" ? "All Products" : activeCategory}
+              {activeCategory?.name ?? "All Products"}
             </h2>
 
-            <p className="text-gray-500 mt-1">
-              {activeCategory === "All"
-                ? "Discover products picked for you."
-                : `Explore our ${activeCategory} collection.`}
+            <p className="mt-1 text-gray-500">
+              {activeCategory
+                ? `Explore our ${activeCategory.name} collection.`
+                : "Discover products picked for you."}
             </p>
           </div>
 
-          <a
+          {/* View Cart */}
+          <Link
             href="/cart"
-            className="inline-flex items-center gap-2 bg-white border border-gray-200 px-5 py-3 rounded-xl text-gray-700 hover:border-blue-500 hover:text-blue-600 transition"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 text-gray-700 transition hover:border-blue-500 hover:text-blue-600"
           >
             <ShoppingBag size={19} />
+
             View Cart
-            <span className="bg-blue-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
+
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
               {cartCount}
             </span>
-          </a>
+          </Link>
         </div>
 
         {/* Search and Sort */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4">
+          <div className="flex flex-col gap-4 md:flex-row">
             {/* Search */}
             <div className="relative flex-1">
               <Search
@@ -211,7 +245,7 @@ function ShopContent() {
                 placeholder="Search products by name or category..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-800"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-12 pr-10 text-gray-800 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500"
               />
 
               {search && (
@@ -228,14 +262,14 @@ function ShopContent() {
             {/* Sort */}
             <div className="relative md:w-56">
               <ArrowUpDown
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 size={18}
               />
 
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 appearance-none cursor-pointer"
+                className="w-full cursor-pointer appearance-none rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-700 outline-none transition focus:ring-2 focus:ring-blue-500"
               >
                 <option value="featured">Featured</option>
                 <option value="price-low">Price: Low to High</option>
@@ -249,31 +283,44 @@ function ShopContent() {
 
         {/* Categories */}
         <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4 text-gray-700 font-semibold">
+          <div className="mb-4 flex items-center gap-2 font-semibold text-gray-700">
             <SlidersHorizontal size={18} />
             Categories
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2">
+            {/* All Categories */}
+            <button
+              onClick={() => handleCategoryChange(null)}
+              className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-medium transition ${
+                !selectedCategory
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                  : "border border-gray-200 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600"
+              }`}
+            >
+              All
+            </button>
+
+            {/* Category List */}
             {categories.map((item) => (
               <button
-                key={item}
-                onClick={() => handleCategoryChange(item)}
-                className={`px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
-                  activeCategory === item
+                key={item.id}
+                onClick={() => handleCategoryChange(item.slug)}
+                className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-medium transition ${
+                  activeCategory?.slug === item.slug
                     ? "bg-blue-600 text-white shadow-md shadow-blue-200"
-                    : "bg-white text-gray-600 border border-gray-200 hover:border-blue-400 hover:text-blue-600"
+                    : "border border-gray-200 bg-white text-gray-600 hover:border-blue-400 hover:text-blue-600"
                 }`}
               >
-                {item}
+                {item.name}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Product count */}
-        <div className="flex justify-between items-center mb-5">
-          <p className="text-gray-500 text-sm">
+        {/* Product Count */}
+        <div className="mb-5 flex items-center justify-between">
+          <p className="text-sm text-gray-500">
             Showing{" "}
             <span className="font-semibold text-gray-900">
               {filteredProducts.length}
@@ -284,7 +331,7 @@ function ShopContent() {
           {(search || selectedCategory || sort !== "featured") && (
             <button
               onClick={clearFilters}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800"
             >
               Clear filters
             </button>
@@ -293,52 +340,52 @@ function ShopContent() {
 
         {/* Products Grid */}
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredProducts.map((product) => (
               <div
                 key={product.id}
-                className="group bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition duration-300"
+                className="group overflow-hidden rounded-2xl border border-gray-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl"
               >
-                {/* Clickable Product Image */}
+                {/* Product Image */}
                 <Link
                   href={`/shop/${product.id}`}
-                  className="block relative aspect-square bg-gray-100 overflow-hidden"
+                  className="relative block aspect-square overflow-hidden bg-gray-100"
                   aria-label={`View ${product.name}`}
                 >
                   <img
                     src={product.image}
                     alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                   />
 
                   {product.isNew && (
-                    <span className="absolute top-3 left-3 bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-full">
+                    <span className="absolute left-3 top-3 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-bold text-white">
                       NEW
                     </span>
                   )}
 
                   {product.isSale && (
-                    <span className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full">
+                    <span className="absolute right-3 top-3 rounded-full bg-red-500 px-3 py-1.5 text-xs font-bold text-white">
                       SALE
                     </span>
                   )}
                 </Link>
 
-                {/* Details */}
+                {/* Product Details */}
                 <div className="p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-2">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-600">
                     {product.category}
                   </p>
 
-                  {/* Clickable Product Name */}
+                  {/* Product Name */}
                   <Link href={`/shop/${product.id}`}>
-                    <h3 className="font-semibold text-gray-900 text-lg truncate mb-2">
+                    <h3 className="mb-2 truncate text-lg font-semibold text-gray-900">
                       {product.name}
                     </h3>
                   </Link>
 
                   {/* Rating */}
-                  <div className="flex items-center gap-1 mb-4">
+                  <div className="mb-4 flex items-center gap-1">
                     <Star
                       size={15}
                       className="fill-yellow-400 text-yellow-400"
@@ -354,7 +401,7 @@ function ShopContent() {
                   </div>
 
                   {/* Price */}
-                  <div className="flex items-center gap-2 mb-5">
+                  <div className="mb-5 flex items-center gap-2">
                     <span className="text-xl font-bold text-gray-900">
                       ${product.price.toFixed(2)}
                     </span>
@@ -366,10 +413,10 @@ function ShopContent() {
                     )}
                   </div>
 
-                  {/* Add to cart */}
+                  {/* Add to Cart */}
                   <button
                     onClick={() => handleAddToCart(product)}
-                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition ${
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold transition ${
                       addedProduct === product.id
                         ? "bg-green-600 text-white"
                         : "bg-gray-900 text-white hover:bg-blue-600"
@@ -392,23 +439,23 @@ function ShopContent() {
             ))}
           </div>
         ) : (
-          /* Empty state */
-          <div className="bg-white rounded-2xl border border-gray-200 py-20 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-5">
+          /* Empty State */
+          <div className="rounded-2xl border border-gray-200 bg-white py-20 text-center">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
               <Search size={28} className="text-gray-400" />
             </div>
 
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+            <h3 className="mb-2 text-xl font-bold text-gray-900">
               No products found
             </h3>
 
-            <p className="text-gray-500 mb-6">
+            <p className="mb-6 text-gray-500">
               Try searching for something else or choose another category.
             </p>
 
             <button
               onClick={clearFilters}
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition"
+              className="rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700"
             >
               Show All Products
             </button>
@@ -423,7 +470,7 @@ export default function ShopPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center text-gray-500">
+        <div className="flex min-h-screen items-center justify-center text-gray-500">
           Loading shop...
         </div>
       }
