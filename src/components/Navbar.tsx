@@ -1,10 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoriteContext";
-import { ShoppingCart, Search, Menu, X, User, Heart } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+import {
+  ShoppingCart,
+  Search,
+  Menu,
+  X,
+  User,
+  Heart,
+  LogOut,
+} from "lucide-react";
 
 const navLinks = [
   { name: "Home", href: "/" },
@@ -14,12 +27,62 @@ const navLinks = [
   { name: "Contact", href: "/contact" },
 ];
 
-
-
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  const router = useRouter();
   const { cartCount } = useCart();
   const { favorites } = useFavorites();
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    // Listen for login and logout events.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    // Get the current signed-in user.
+    // supabase.auth
+    //   .getUser()
+    //   .then(({ data, error }) => {
+    //     if (error) {
+    //       console.error("Could not get user:", error.message);
+    //       setUser(null);
+    //     } else {
+    //       setUser(data.user);
+    //     }
+
+    //     setAuthLoading(false);
+    //   });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+
+  }, []);
+
+  async function handleLogout() {
+    const supabase = createClient();
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Logout failed:", error.message);
+      return;
+    }
+
+    setUser(null);
+    setIsOpen(false);
+
+    router.replace("/");
+    router.refresh();
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
@@ -43,7 +106,7 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* Action Buttons */}
+          {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-5">
             <button
               aria-label="Search"
@@ -80,13 +143,42 @@ export default function Navbar() {
               )}
             </Link>
 
-            <Link
-              href="/login"
-              className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition"
-            >
-              <User size={18} />
-              Login
-            </Link>
+            {/* Authentication */}
+            {authLoading ? (
+              <span className="text-sm text-gray-400">
+                Loading...
+              </span>
+            ) : user ? (
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/account"
+                  className="flex items-center gap-2 text-gray-700 hover:text-blue-600"
+                >
+                  <User size={19} />
+                  <span className="max-w-32 truncate">
+                    {user.user_metadata?.full_name ||
+                      user.email?.split("@")[0] ||
+                      "Account"}
+                  </span>
+                </Link>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-200 transition"
+                >
+                  <LogOut size={18} />
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition"
+              >
+                <User size={18} />
+                Login
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -114,16 +206,53 @@ export default function Navbar() {
               </Link>
             ))}
 
-            <div className="flex gap-5 pt-3 border-t">
-              <Link href="/favorites" onClick={() => setIsOpen(false)}>
+            <div className="flex items-center gap-5 pt-3 border-t">
+              <Link
+                href="/favorites"
+                onClick={() => setIsOpen(false)}
+                aria-label="Favorites"
+              >
                 <Heart size={21} />
               </Link>
-              <Link href="/cart" onClick={() => setIsOpen(false)}>
+
+              <Link
+                href="/cart"
+                onClick={() => setIsOpen(false)}
+                aria-label="Cart"
+              >
                 <ShoppingCart size={21} />
               </Link>
-              <Link href="/login" onClick={() => setIsOpen(false)}>
-                Login
-              </Link>
+
+              {!authLoading && (
+                user ? (
+                  <>
+                    <Link
+                      href="/account"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-2 text-blue-600"
+                    >
+                      <User size={18} />
+                      Account
+                    </Link>
+
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 text-gray-700"
+                    >
+                      <LogOut size={18} />
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setIsOpen(false)}
+                    className="text-blue-600"
+                  >
+                    Login
+                  </Link>
+                )
+              )}
             </div>
           </div>
         )}
