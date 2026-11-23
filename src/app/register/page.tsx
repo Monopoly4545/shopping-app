@@ -5,11 +5,9 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, User, Mail, Lock } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
   const router = useRouter();
-
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,39 +43,32 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
-
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: {
-            full_name: fullName.trim(),
-          },
-          emailRedirectTo: `${window.location.origin}/login`,
-        },
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          password,
+        }),
       });
 
-      if (error) {
-        setError(error.message);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
         return;
       }
 
-      if (data.session) {
-        setSuccess("Your account has been created successfully!");
-        router.replace("/");
-        router.refresh();
-        return;
-      }
-
-      setSuccess(
-        "Registration successful! Please check your email and click the verification link to activate your account."
-      );
+      setSuccess("Your account has been created successfully!");
 
       setFullName("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+
+      router.replace("/");
+      router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

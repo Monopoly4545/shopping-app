@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoriteContext";
-import { createClient } from "@/lib/supabase/client";
+import type { AuthUser } from "@/lib/auth/types";
 
 import {
   ShoppingCart,
@@ -29,7 +28,7 @@ const navLinks = [
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   const router = useRouter();
@@ -37,44 +36,36 @@ export default function Navbar() {
   const { favorites } = useFavorites();
 
   useEffect(() => {
-    const supabase = createClient();
+    let cancelled = false;
 
-    // Listen for login and logout events.
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
-
-    // Get the current signed-in user.
-    // supabase.auth
-    //   .getUser()
-    //   .then(({ data, error }) => {
-    //     if (error) {
-    //       console.error("Could not get user:", error.message);
-    //       setUser(null);
-    //     } else {
-    //       setUser(data.user);
-    //     }
-
-    //     setAuthLoading(false);
-    //   });
+    fetch("/api/auth/me")
+      .then((response) => response.json())
+      .then((data) => {
+        if (!cancelled) {
+          setUser(data.user ?? null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAuthLoading(false);
+        }
+      });
 
     return () => {
-      subscription.unsubscribe();
+      cancelled = true;
     };
-
   }, []);
 
   async function handleLogout() {
-    const supabase = createClient();
-
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      console.error("Logout failed:", error.message);
-      return;
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Clear the local state even if the request fails.
     }
 
     setUser(null);
@@ -145,9 +136,7 @@ export default function Navbar() {
 
             {/* Authentication */}
             {authLoading ? (
-              <span className="text-sm text-gray-400">
-                Loading...
-              </span>
+              <span className="text-sm text-gray-400">Loading...</span>
             ) : user ? (
               <div className="flex items-center gap-3">
                 <Link
@@ -156,9 +145,7 @@ export default function Navbar() {
                 >
                   <User size={19} />
                   <span className="max-w-32 truncate">
-                    {user.user_metadata?.full_name ||
-                      user.email?.split("@")[0] ||
-                      "Account"}
+                    {user.fullName || user.email.split("@")[0] || "Account"}
                   </span>
                 </Link>
 
@@ -223,8 +210,8 @@ export default function Navbar() {
                 <ShoppingCart size={21} />
               </Link>
 
-              {!authLoading && (
-                user ? (
+              {!authLoading &&
+                (user ? (
                   <>
                     <Link
                       href="/account"
@@ -251,8 +238,7 @@ export default function Navbar() {
                   >
                     Login
                   </Link>
-                )
-              )}
+                ))}
             </div>
           </div>
         )}
