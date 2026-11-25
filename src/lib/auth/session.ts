@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 
-import pool from "@/lib/db/db";
+import { pool } from "@/lib/db/db";
 import { ensureAuthSchema } from "@/lib/auth/schema";
 import type { AuthUser } from "@/lib/auth/types";
 

@@ -1,4 +1,4 @@
-import pool from "@/lib/db/db";
+import { pool } from "@/lib/db/db";
 
 let schemaPromise: Promise<void> | null = null;
 

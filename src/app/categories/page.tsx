@@ -1,12 +1,57 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { categories } from "@/data/categories";
+import type { Category } from "@/types/shop";
+import { getCategories } from "@/lib/db/shop-api";
 import { ArrowRight, Grid2X2 } from "lucide-react";
 
 export default function CategoriesPage() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    getCategories()
+      .then((data) => {
+        if (active) setCategories(data);
+      })
+      .catch(() => {
+        if (active) setError("Unable to load categories");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-500">
+        Loading categories...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 px-6 text-center">
+        <p className="text-lg font-semibold text-gray-900">{error}</p>
+
+        <p className="text-gray-500">
+          Please try again in a moment.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}

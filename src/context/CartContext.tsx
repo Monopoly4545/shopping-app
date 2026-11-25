@@ -9,7 +9,7 @@ import {
   ReactNode,
 } from "react";
 
-import { Product } from "@/data/products";
+import type { Product } from "@/types/shop";
 
 interface CartItem {
   product: Product;

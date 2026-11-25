@@ -1,6 +1,6 @@
 
 import { NextResponse } from "next/server";
-import pool from "@/lib/db/db";
+import { pool } from "@/lib/db/db";
 
 export const runtime = "nodejs";
 

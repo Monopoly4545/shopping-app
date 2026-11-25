@@ -13,14 +13,19 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
-import { products } from "@/data/products";
-import { categories } from "@/data/categories";
+import type { Category, Product } from "@/types/shop";
+import { getCategories, getProducts } from "@/lib/db/shop-api";
 import { useCart } from "@/context/CartContext";
 
 function ShopContent() {
   const searchParams = useSearchParams();
 
   const { addToCart, cartCount } = useCart();
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("featured");
@@ -43,6 +48,31 @@ function ShopContent() {
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  // Load products and categories from the database
+  useEffect(() => {
+    let active = true;
+
+    Promise.all([getProducts(), getCategories()])
+      .then(([productData, categoryData]) => {
+        if (!active) return;
+
+        setProducts(productData);
+        setCategories(categoryData);
+      })
+      .catch(() => {
+        if (!active) return;
+
+        setError("Unable to load products");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
     };
   }, []);
 
@@ -126,10 +156,10 @@ function ShopContent() {
     }
 
     return result;
-  }, [search, selectedCategory, sort]);
+  }, [products, categories, search, selectedCategory, sort]);
 
   // Add product to cart
-  const handleAddToCart = (product: (typeof products)[number]) => {
+  const handleAddToCart = (product: Product) => {
     addToCart(product);
     setAddedProduct(product.id);
 
@@ -146,6 +176,26 @@ function ShopContent() {
     setSort("featured");
     handleCategoryChange(null);
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-500">
+        Loading products...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 px-6 text-center">
+        <p className="text-lg font-semibold text-gray-900">{error}</p>
+
+        <p className="text-gray-500">
+          Please try again in a moment.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

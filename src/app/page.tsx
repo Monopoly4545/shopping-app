@@ -11,18 +11,51 @@ import {
   Headphones,
 } from "lucide-react";
 
-import { products } from "@/data/products";
+import { useEffect, useState } from "react";
+import type { Category, Product } from "@/types/shop";
+import { getCategories, getProducts } from "@/lib/db/shop-api";
 import { useCart } from "@/context/CartContext";
+
+const categoryIcons: Record<string, string> = {
+  electronics: "🎧",
+  fashion: "👕",
+  accessories: "⌚",
+  "home-living": "🏠",
+  beauty: "💄",
+  sports: "🏀",
+};
 
 export default function HomePage() {
   const { addToCart } = useCart();
 
-  const categories = [
-    { name: "Electronics", icon: "🎧" },
-    { name: "Fashion", icon: "👕" },
-    { name: "Accessories", icon: "⌚" },
-    { name: "Home & Living", icon: "🏠" },
-  ];
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    Promise.all([getProducts(), getCategories()])
+      .then(([productData, categoryData]) => {
+        if (!active) return;
+
+        setProducts(productData);
+        setCategories(categoryData);
+      })
+      .catch(() => {
+        if (!active) return;
+
+        setError("Unable to load products");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="bg-white text-gray-900">
@@ -116,14 +149,22 @@ export default function HomePage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-          {categories.map((category) => (
+        {loading && (
+          <p className="py-6 text-center text-gray-500">
+            Loading categories...
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6">
+          {!loading && categories.map((category) => (
             <Link
-              href={`/categories`}
-              key={category.name}
+              href={`/shop?category=${category.slug}`}
+              key={category.id}
               className="rounded-2xl border border-gray-100 bg-gray-50 p-8 text-center transition hover:-translate-y-1 hover:border-blue-200 hover:bg-blue-50"
             >
-              <span className="text-4xl">{category.icon}</span>
+              <span className="text-4xl">
+                {categoryIcons[category.slug] ?? "🛍️"}
+              </span>
               <h3 className="mt-4 font-semibold">{category.name}</h3>
             </Link>
           ))}
@@ -152,8 +193,18 @@ export default function HomePage() {
             </Link>
           </div>
 
+          {loading && (
+            <p className="py-12 text-center text-gray-500">
+              Loading products...
+            </p>
+          )}
+
+          {error && (
+            <p className="py-12 text-center text-gray-500">{error}</p>
+          )}
+
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {products.map((product) => (
+            {!loading && !error && products.map((product) => (
               <div
                 key={product.id}
                 className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition hover:-translate-y-1 hover:shadow-xl"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,7 +16,8 @@ import {
   Check,
 } from "lucide-react";
 
-import { products } from "@/data/products";
+import type { Product } from "@/types/shop";
+import { getProducts } from "@/lib/db/shop-api";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoriteContext";
 
@@ -28,12 +29,53 @@ export default function ProductDetailPage() {
 
   const productId = Number(params.id);
 
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    getProducts()
+      .then((data) => {
+        if (active) setProducts(data);
+      })
+      .catch(() => {
+        if (active) setError("Unable to load product");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const product = products.find((item) => item.id === productId);
 
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [activeTab, setActiveTab] = useState("description");
   const { toggleFavorite, isFavorite } = useFavorites();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center text-gray-500">
+        Loading product...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
+        <h1 className="text-3xl font-bold text-gray-900">{error}</h1>
+
+        <p className="text-gray-500">Please try again in a moment.</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -67,16 +109,7 @@ export default function ProductDetailPage() {
   const handleAddToCart = () => {
     // CartContext adds one item per call.
     for (let i = 0; i < quantity; i++) {
-      addToCart({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        image: product.image,
-        category: "",
-        originalPrice: 0,
-        rating: 0,
-        reviews: 0,
-      });
+      addToCart(product);
     }
 
     setAdded(true);

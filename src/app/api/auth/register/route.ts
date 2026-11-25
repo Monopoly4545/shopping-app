@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { hashPassword } from "@/lib/auth/password";
 import { ensureAuthSchema } from "@/lib/auth/schema";
 import { startSession } from "@/lib/auth/session";
-import pool from "@/lib/db/db";
+import { pool } from "@/lib/db/db";
 
 export const runtime = "nodejs";
 
