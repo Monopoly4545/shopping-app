@@ -16,6 +16,7 @@ import Link from "next/link";
 import type { Category, Product } from "@/types/shop";
 import { getCategories, getProducts } from "@/lib/db/shop-api";
 import { useCart } from "@/context/CartContext";
+import LoadingScreen from "@/components/LoadingScreen";
 
 function ShopContent() {
   const searchParams = useSearchParams();
@@ -178,11 +179,7 @@ function ShopContent() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-500">
-        Loading products...
-      </div>
-    );
+    return <LoadingScreen message="Loading products..." />;
   }
 
   if (error) {
@@ -518,13 +515,7 @@ function ShopContent() {
 
 export default function ShopPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center text-gray-500">
-          Loading shop...
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingScreen message="Loading shop..." />}>
       <ShopContent />
     </Suspense>
   );

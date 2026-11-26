@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 
 import { pool } from "@/lib/db/db";
 import { ensureAuthSchema } from "@/lib/auth/schema";
-import type { AuthUser } from "@/lib/auth/types";
+import type { AuthUser, UserRole } from "@/lib/auth/types";
 
 export const SESSION_COOKIE = "session";
 
@@ -13,6 +13,10 @@ export type { AuthUser };
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+function normaliseRole(role: string | null): UserRole {
+  return role === "admin" ? "admin" : "customer";
 }
 
 /**
@@ -48,8 +52,6 @@ export async function startSession(userId: string): Promise<void> {
  * signed-in user (or null).
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  await ensureAuthSchema();
-
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
@@ -57,12 +59,15 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     return null;
   }
 
+  await ensureAuthSchema();
+
   const result = await pool.query<{
     id: string;
     email: string;
     full_name: string | null;
+    role: string | null;
   }>(
-    `SELECT u.id, u.email, u.full_name
+    `SELECT u.id, u.email, u.full_name, u.role
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1 AND s.expires_at > now()
@@ -80,6 +85,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     id: row.id,
     email: row.email,
     fullName: row.full_name,
+    role: normaliseRole(row.role),
   };
 }
 

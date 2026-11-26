@@ -20,6 +20,7 @@ import type { Product } from "@/types/shop";
 import { getProducts } from "@/lib/db/shop-api";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoriteContext";
+import LoadingScreen from "@/components/LoadingScreen";
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -60,11 +61,7 @@ export default function ProductDetailPage() {
   const { toggleFavorite, isFavorite } = useFavorites();
 
   if (loading) {
-    return (
-      <div className="flex min-h-[70vh] items-center justify-center text-gray-500">
-        Loading product...
-      </div>
-    );
+    return <LoadingScreen message="Loading product..." />;
   }
 
   if (error) {

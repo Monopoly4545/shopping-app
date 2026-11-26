@@ -16,6 +16,7 @@ import {
   User,
   Heart,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 
 const navLinks = [
@@ -139,6 +140,16 @@ export default function Navbar() {
               <span className="text-sm text-gray-400">Loading...</span>
             ) : user ? (
               <div className="flex items-center gap-3">
+                {user.role === "admin" && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                  >
+                    <ShieldCheck size={17} />
+                    Admin
+                  </Link>
+                )}
+
                 <Link
                   href="/account"
                   className="flex items-center gap-2 text-gray-700 hover:text-blue-600"
@@ -213,6 +224,17 @@ export default function Navbar() {
               {!authLoading &&
                 (user ? (
                   <>
+                    {user.role === "admin" && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-2 text-blue-600"
+                      >
+                        <ShieldCheck size={18} />
+                        Admin
+                      </Link>
+                    )}
+
                     <Link
                       href="/account"
                       onClick={() => setIsOpen(false)}

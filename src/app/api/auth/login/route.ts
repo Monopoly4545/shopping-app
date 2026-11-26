@@ -29,8 +29,9 @@ export async function POST(request: Request) {
       email: string;
       full_name: string | null;
       password_hash: string | null;
+      role: string | null;
     }>(
-      `SELECT id, email, full_name, password_hash
+      `SELECT id, email, full_name, password_hash, role
        FROM users
        WHERE email = $1
        LIMIT 1`,
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
         id: user.id,
         email: user.email,
         fullName: user.full_name,
+        role: user.role === "admin" ? "admin" : "customer",
       },
     });
   } catch (error) {

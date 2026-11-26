@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Imperial_Script } from "next/font/google";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import StorefrontChrome from "../components/StorefrontChrome";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { FavoriteProvider } from "@/context/FavoriteContext";
@@ -30,11 +31,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <CartProvider>
           <FavoriteProvider>
-            <Navbar />
+            <StorefrontChrome>
+              <Navbar />
+            </StorefrontChrome>
 
             <main className="min-h-screen">{children}</main>
 
-            <Footer />
+            <StorefrontChrome>
+              <Footer />
+            </StorefrontChrome>
           </FavoriteProvider>
         </CartProvider>
       </body>

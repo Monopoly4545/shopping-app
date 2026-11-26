@@ -49,10 +49,11 @@ export async function POST(request: Request) {
       id: string;
       email: string;
       full_name: string | null;
+      role: string | null;
     }>(
-      `INSERT INTO users (id, email, password_hash, full_name)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, email, full_name`,
+      `INSERT INTO users (id, email, password_hash, full_name, role)
+       VALUES ($1, $2, $3, $4, 'customer')
+       RETURNING id, email, full_name, role`,
       [randomUUID(), email, passwordHash, fullName]
     );
 
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
           id: user.id,
           email: user.email,
           fullName: user.full_name,
+          role: user.role === "admin" ? "admin" : "customer",
         },
       },
       { status: 201 }

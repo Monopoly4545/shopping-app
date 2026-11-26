@@ -47,7 +47,24 @@ export default function LoginPage() {
 
       setSuccess("Login successful! Redirecting...");
 
-      router.replace("/");
+      const nextParam = new URLSearchParams(window.location.search).get("next");
+      let safeNext: string | null = null;
+
+      if (nextParam) {
+        try {
+          const nextUrl = new URL(nextParam, window.location.origin);
+
+          if (nextUrl.origin === window.location.origin) {
+            safeNext = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+          }
+        } catch {
+          safeNext = null;
+        }
+      }
+
+      router.replace(
+        safeNext ?? (data.user?.role === "admin" ? "/admin" : "/")
+      );
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");

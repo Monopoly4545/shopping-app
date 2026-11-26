@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Category } from "@/types/shop";
 import { getCategories } from "@/lib/db/shop-api";
+import LoadingScreen from "@/components/LoadingScreen";
 import { ArrowRight, Grid2X2 } from "lucide-react";
 
 export default function CategoriesPage() {
@@ -33,11 +34,7 @@ export default function CategoriesPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-500">
-        Loading categories...
-      </div>
-    );
+    return <LoadingScreen message="Loading categories..." />;
   }
 
   if (error) {
@@ -158,7 +155,7 @@ export default function CategoriesPage() {
         <div className="flex flex-col items-center justify-between gap-6 rounded-3xl bg-blue-600 px-8 py-12 text-center text-white md:flex-row md:px-14 md:text-left">
           <div>
             <h2 className="text-3xl font-bold">
-              Can't find what you need?
+              Can&apos;t find what you need?
             </h2>
             <p className="mt-2 text-blue-100">
               Browse our complete collection of products.

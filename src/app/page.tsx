@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import type { Category, Product } from "@/types/shop";
 import { getCategories, getProducts } from "@/lib/db/shop-api";
 import { useCart } from "@/context/CartContext";
+import LoadingScreen from "@/components/LoadingScreen";
 
 const categoryIcons: Record<string, string> = {
   electronics: "🎧",
@@ -137,7 +138,7 @@ export default function HomePage() {
           <div>
             <h2 className="text-3xl font-bold">Shop by Category</h2>
             <p className="mt-2 text-gray-500">
-              Find exactly what you're looking for.
+              Find exactly what you&apos;re looking for.
             </p>
           </div>
 
@@ -149,13 +150,18 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {loading && (
-          <p className="py-6 text-center text-gray-500">
-            Loading categories...
-          </p>
-        )}
-
         <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6">
+          {loading &&
+            Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={index}
+                className="animate-pulse rounded-2xl border border-gray-100 bg-gray-50 p-8 text-center"
+              >
+                <div className="mx-auto h-9 w-9 rounded-full bg-gray-200" />
+                <div className="mx-auto mt-4 h-4 w-20 rounded bg-gray-200" />
+              </div>
+            ))}
+
           {!loading && categories.map((category) => (
             <Link
               href={`/shop?category=${category.slug}`}
@@ -194,9 +200,7 @@ export default function HomePage() {
           </div>
 
           {loading && (
-            <p className="py-12 text-center text-gray-500">
-              Loading products...
-            </p>
+            <LoadingScreen message="Loading products..." className="py-12" />
           )}
 
           {error && (
@@ -311,7 +315,7 @@ export default function HomePage() {
           </div>
           <div>
             <h3 className="font-bold">24/7 Support</h3>
-            <p className="text-sm text-gray-500">We're always here to help</p>
+            <p className="text-sm text-gray-500">We&apos;re always here to help</p>
           </div>
         </div>
       </section>
