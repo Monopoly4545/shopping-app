@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoriteContext";
 import type { AuthUser } from "@/lib/auth/types";
+import { AUTH_CHANGE_EVENT, notifyAuthChange } from "@/lib/auth/client";
 
 import {
   ShoppingCart,
@@ -36,42 +37,73 @@ export default function Navbar() {
   const { cartCount } = useCart();
   const { favorites } = useFavorites();
 
+  // Fetch the currently authenticated user.
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/auth/me")
-      .then((response) => response.json())
-      .then((data) => {
+    async function refreshUser() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch authenticated user.");
+        }
+
+        const data = await response.json();
+
         if (!cancelled) {
           setUser(data.user ?? null);
         }
-      })
-      .catch(() => {
+      } catch (error) {
+        console.error("Navbar authentication error:", error);
+
         if (!cancelled) {
           setUser(null);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setAuthLoading(false);
         }
-      });
+      }
+    }
+
+    // Check authentication when Navbar mounts.
+    refreshUser();
+
+    // Listen for successful login, registration or logout.
+    window.addEventListener(AUTH_CHANGE_EVENT, refreshUser);
 
     return () => {
       cancelled = true;
+      window.removeEventListener(AUTH_CHANGE_EVENT, refreshUser);
     };
   }, []);
 
+  // Logout customer.
   async function handleLogout() {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch {
-      // Clear the local state even if the request fails.
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Logout failed.");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
     }
 
+    // Clear Navbar authentication state.
     setUser(null);
     setIsOpen(false);
 
+    // Let any other client components know the session ended.
+    notifyAuthChange();
+
+    // Navigate to homepage.
     router.replace("/");
     router.refresh();
   }
@@ -107,6 +139,7 @@ export default function Navbar() {
               <Search size={21} />
             </button>
 
+            {/* Favorites */}
             <Link
               href="/favorites"
               aria-label="My favorites"
@@ -121,6 +154,7 @@ export default function Navbar() {
               )}
             </Link>
 
+            {/* Shopping Cart */}
             <Link
               href="/cart"
               aria-label={`Shopping cart with ${cartCount} items`}
@@ -140,6 +174,7 @@ export default function Navbar() {
               <span className="text-sm text-gray-400">Loading...</span>
             ) : user ? (
               <div className="flex items-center gap-3">
+                {/* Admin Link */}
                 {user.role === "admin" && (
                   <Link
                     href="/admin"
@@ -150,16 +185,19 @@ export default function Navbar() {
                   </Link>
                 )}
 
+                {/* Account Link */}
                 <Link
                   href="/account"
                   className="flex items-center gap-2 text-gray-700 hover:text-blue-600"
                 >
                   <User size={19} />
+
                   <span className="max-w-32 truncate">
                     {user.fullName || user.email.split("@")[0] || "Account"}
                   </span>
                 </Link>
 
+                {/* Logout */}
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-200 transition"
@@ -205,6 +243,7 @@ export default function Navbar() {
             ))}
 
             <div className="flex items-center gap-5 pt-3 border-t">
+              {/* Mobile Favorites */}
               <Link
                 href="/favorites"
                 onClick={() => setIsOpen(false)}
@@ -213,6 +252,7 @@ export default function Navbar() {
                 <Heart size={21} />
               </Link>
 
+              {/* Mobile Cart */}
               <Link
                 href="/cart"
                 onClick={() => setIsOpen(false)}
@@ -221,6 +261,7 @@ export default function Navbar() {
                 <ShoppingCart size={21} />
               </Link>
 
+              {/* Mobile Authentication */}
               {!authLoading &&
                 (user ? (
                   <>
@@ -241,7 +282,7 @@ export default function Navbar() {
                       className="flex items-center gap-2 text-blue-600"
                     >
                       <User size={18} />
-                      Account
+                      {user.fullName || "Account"}
                     </Link>
 
                     <button

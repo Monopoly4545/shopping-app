@@ -1,10 +1,11 @@
-
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, User, Mail, Lock } from "lucide-react";
+
+import { notifyAuthChange } from "@/lib/auth/client";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,11 +20,10 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  async function handleRegister(e: FormEvent<HTMLFormElement>) {
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     setError("");
-    setSuccess("");
 
     if (!fullName.trim()) {
       setError("Please enter your full name.");
@@ -40,41 +40,46 @@ export default function RegisterPage() {
       return;
     }
 
-    setLoading(true);
-
     try {
+      setLoading(true);
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          fullName: fullName.trim(),
-          email: email.trim(),
+          fullName,
+          email,
           password,
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error ?? "Something went wrong. Please try again.");
-        return;
+        throw new Error(data.error || "Registration failed.");
       }
 
-      setSuccess("Your account has been created successfully!");
+      // Registration succeeded and the backend started a session.
+      setSuccess("Account created successfully!");
 
-      setFullName("");
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
+      // Tell the Navbar to load the newly signed-in user before navigating.
+      notifyAuthChange();
 
+      // Redirect to the homepage.
       router.replace("/");
       router.refresh();
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">

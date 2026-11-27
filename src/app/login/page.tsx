@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
+import { notifyAuthChange } from "@/lib/auth/client";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -46,6 +48,9 @@ export default function LoginPage() {
       }
 
       setSuccess("Login successful! Redirecting...");
+
+      // Tell the Navbar to load the signed-in user before navigating.
+      notifyAuthChange();
 
       const nextParam = new URLSearchParams(window.location.search).get("next");
       let safeNext: string | null = null;
