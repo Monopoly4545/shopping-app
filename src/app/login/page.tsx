@@ -6,7 +6,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
-import { notifyAuthChange } from "@/lib/auth/client";
+import { setAuthUser } from "@/lib/auth/client";
+import {
+  clearGuestShoppingData,
+  readGuestCartForMerge,
+  readGuestFavoriteIdsForMerge,
+} from "@/lib/user/client-storage";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,6 +35,10 @@ export default function LoginPage() {
 
     setLoading(true);
 
+    // Read guest data before the browser storage is cleared on success.
+    const guestCart = readGuestCartForMerge();
+    const guestFavorites = readGuestFavoriteIdsForMerge();
+
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -37,6 +46,8 @@ export default function LoginPage() {
         body: JSON.stringify({
           email: email.trim(),
           password,
+          guestCart,
+          guestFavorites,
         }),
       });
 
@@ -49,8 +60,11 @@ export default function LoginPage() {
 
       setSuccess("Login successful! Redirecting...");
 
-      // Tell the Navbar to load the signed-in user before navigating.
-      notifyAuthChange();
+      // The server has already merged any guest cart and favorites.
+      clearGuestShoppingData();
+
+      // Update the Navbar (and the cart/favorites providers) immediately.
+      setAuthUser(data.user ?? null);
 
       const nextParam = new URLSearchParams(window.location.search).get("next");
       let safeNext: string | null = null;
@@ -207,7 +221,7 @@ export default function LoginPage() {
 
         {/* Register Link */}
         <p className="text-center text-sm text-gray-500 mt-7">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href="/register"
             className="text-blue-600 font-semibold hover:underline"

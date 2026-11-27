@@ -70,7 +70,7 @@ export default function FavoritesPage() {
             </h2>
 
             <p className="text-gray-500 max-w-md mx-auto mb-8">
-              You haven't saved any products yet.
+              You haven&apos;t saved any products yet.
               Explore our shop and add products you love!
             </p>
 
@@ -144,7 +144,7 @@ export default function FavoritesPage() {
                   </div>
 
                   <Link
-                    href="/shop"
+                    href={`/shop/${product.id}`}
                     className="mt-5 w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-blue-600 text-white py-3 rounded-lg font-semibold transition"
                   >
                     <ShoppingBag size={17} />

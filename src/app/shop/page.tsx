@@ -196,55 +196,6 @@ function ShopContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          {/* Breadcrumb */}
-          <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
-            <Link href="/" className="hover:text-blue-600">
-              Home
-            </Link>
-
-            <span>/</span>
-
-            <span className="text-gray-900">Shop</span>
-          </div>
-
-          {/* Eyebrow */}
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-blue-600">
-            Discover Something Amazing
-          </p>
-
-          {/* Heading */}
-          <h1 className="max-w-2xl text-4xl font-bold tracking-tight text-gray-900 md:text-6xl">
-            Explore Our
-            <span className="text-blue-600"> Shop.</span>
-          </h1>
-
-          {/* Description */}
-          <p className="mt-6 max-w-xl leading-relaxed text-gray-500">
-            Find your favorite products, discover new arrivals, and enjoy a
-            seamless shopping experience with ShopEase.
-          </p>
-
-          {/* Additional Info */}
-          <div className="mt-8 flex flex-wrap items-center gap-4 text-sm text-gray-500">
-            <span className="flex items-center gap-2">
-              <ShoppingBag size={18} className="text-blue-600" />
-
-              <span className="font-semibold text-gray-900">
-                {products.length}
-              </span>
-
-              Products
-            </span>
-
-            <span className="text-gray-300">|</span>
-
-            <span>Quality you can trust</span>
-          </div>
-        </div>
-      </section>
 
       {/* Shop */}
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">

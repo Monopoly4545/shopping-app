@@ -5,7 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, User, Mail, Lock } from "lucide-react";
 
-import { notifyAuthChange } from "@/lib/auth/client";
+import { setAuthUser } from "@/lib/auth/client";
+import {
+  clearGuestShoppingData,
+  readGuestCartForMerge,
+  readGuestFavoriteIdsForMerge,
+} from "@/lib/user/client-storage";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -43,6 +48,10 @@ export default function RegisterPage() {
     try {
       setLoading(true);
 
+      // Read guest data before the browser storage is cleared on success.
+      const guestCart = readGuestCartForMerge();
+      const guestFavorites = readGuestFavoriteIdsForMerge();
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: {
@@ -52,6 +61,8 @@ export default function RegisterPage() {
           fullName,
           email,
           password,
+          guestCart,
+          guestFavorites,
         }),
       });
 
@@ -64,8 +75,11 @@ export default function RegisterPage() {
       // Registration succeeded and the backend started a session.
       setSuccess("Account created successfully!");
 
-      // Tell the Navbar to load the newly signed-in user before navigating.
-      notifyAuthChange();
+      // The server has already merged any guest cart and favorites.
+      clearGuestShoppingData();
+
+      // Update the Navbar (and the cart/favorites providers) immediately.
+      setAuthUser(data.user ?? null);
 
       // Redirect to the homepage.
       router.replace("/");

@@ -7,7 +7,11 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useFavorites } from "@/context/FavoriteContext";
 import type { AuthUser } from "@/lib/auth/types";
-import { AUTH_CHANGE_EVENT, notifyAuthChange } from "@/lib/auth/client";
+import {
+  AUTH_CHANGE_EVENT,
+  getCachedAuthUser,
+  setAuthUser,
+} from "@/lib/auth/client";
 
 import {
   ShoppingCart,
@@ -30,8 +34,12 @@ const navLinks = [
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(
+    () => getCachedAuthUser() ?? null
+  );
+  const [authLoading, setAuthLoading] = useState(
+    () => getCachedAuthUser() === undefined
+  );
 
   const router = useRouter();
   const { cartCount } = useCart();
@@ -54,13 +62,15 @@ export default function Navbar() {
 
         const data = await response.json();
 
-        if (!cancelled) {
+        // A login/logout may have finished while this request was in flight.
+        // In that case the explicit result is newer than /api/auth/me.
+        if (!cancelled && getCachedAuthUser() === undefined) {
           setUser(data.user ?? null);
         }
       } catch (error) {
         console.error("Navbar authentication error:", error);
 
-        if (!cancelled) {
+        if (!cancelled && getCachedAuthUser() === undefined) {
           setUser(null);
         }
       } finally {
@@ -73,12 +83,24 @@ export default function Navbar() {
     // Check authentication when Navbar mounts.
     refreshUser();
 
-    // Listen for successful login, registration or logout.
-    window.addEventListener(AUTH_CHANGE_EVENT, refreshUser);
+    // Login, registration and logout publish the new user synchronously.
+    function handleAuthChange() {
+      const cached = getCachedAuthUser();
+
+      if (cached !== undefined) {
+        setUser(cached);
+        setAuthLoading(false);
+        return;
+      }
+
+      void refreshUser();
+    }
+
+    window.addEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
 
     return () => {
       cancelled = true;
-      window.removeEventListener(AUTH_CHANGE_EVENT, refreshUser);
+      window.removeEventListener(AUTH_CHANGE_EVENT, handleAuthChange);
     };
   }, []);
 
@@ -100,8 +122,9 @@ export default function Navbar() {
     setUser(null);
     setIsOpen(false);
 
-    // Let any other client components know the session ended.
-    notifyAuthChange();
+    // Let the cart, favorites and any other client components know
+    // the session ended.
+    setAuthUser(null);
 
     // Navigate to homepage.
     router.replace("/");

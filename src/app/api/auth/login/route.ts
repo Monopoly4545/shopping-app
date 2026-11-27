@@ -4,6 +4,11 @@ import { verifyPassword } from "@/lib/auth/password";
 import { ensureAuthSchema } from "@/lib/auth/schema";
 import { startSession } from "@/lib/auth/session";
 import { pool } from "@/lib/db/db";
+import { mergeCartItems, mergeFavorites } from "@/lib/user/queries";
+import {
+  parseGuestCart,
+  parseGuestFavoriteIds,
+} from "@/lib/user/validation";
 
 export const runtime = "nodejs";
 
@@ -14,6 +19,10 @@ export async function POST(request: Request) {
     const email =
       typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
+
+    // Items the customer collected before signing in.
+    const guestCart = parseGuestCart(body?.guestCart);
+    const guestFavorites = parseGuestFavoriteIds(body?.guestFavorites);
 
     if (!email || !password) {
       return NextResponse.json(
@@ -52,6 +61,19 @@ export async function POST(request: Request) {
     }
 
     await startSession(user.id);
+
+    // Best effort: a problem merging guest data must not block the login.
+    try {
+      if (guestCart.length > 0) {
+        await mergeCartItems(user.id, guestCart);
+      }
+
+      if (guestFavorites.length > 0) {
+        await mergeFavorites(user.id, guestFavorites);
+      }
+    } catch (error) {
+      console.error("Guest data merge error:", error);
+    }
 
     return NextResponse.json({
       user: {

@@ -1,14 +1,26 @@
+import type { AuthUser } from "@/lib/auth/types";
+
 /**
  * Name of the browser event used to tell client components (such as the
- * Navbar) that the signed-in user has changed and the session should be
- * re-fetched.
+ * Navbar, cart and favorites) that the signed-in user has changed.
  */
 export const AUTH_CHANGE_EVENT = "shopease:auth-change";
 
-export function notifyAuthChange(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
+/**
+ * The user returned by the most recent login/registration/logout. Keeping it
+ * here lets the Navbar update immediately instead of racing a /api/auth/me
+ * request against the navigation that follows sign-in.
+ */
+let cachedUser: AuthUser | null | undefined;
 
-  window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+export function getCachedAuthUser(): AuthUser | null | undefined {
+  return cachedUser;
+}
+
+export function setAuthUser(user: AuthUser | null): void {
+  cachedUser = user;
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+  }
 }
