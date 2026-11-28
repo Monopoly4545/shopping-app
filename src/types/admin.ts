@@ -1,14 +1,14 @@
 import type { UserRole } from "@/lib/auth/types";
+import type {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+  ShippingAddress,
+  ShippingStatus,
+} from "@/types/orders";
 
-export const ORDER_STATUSES = [
-  "pending",
-  "processing",
-  "shipped",
-  "delivered",
-  "cancelled",
-] as const;
-
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
+export { ORDER_STATUSES, isOrderStatus } from "@/types/orders";
+export type { OrderStatus } from "@/types/orders";
 
 export type AdminProduct = {
   id: number;
@@ -35,9 +35,50 @@ export type AdminOrder = {
   customerName: string;
   customerEmail: string;
   status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
   total: number;
   itemCount: number;
   createdAt: string;
+};
+
+export type AdminOrderItem = {
+  id: string;
+  productId: number | null;
+  productName: string;
+  productImage: string | null;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+};
+
+export type AdminOrderPayment = {
+  id: string;
+  provider: PaymentMethod;
+  transactionId: string | null;
+  amount: number;
+  status: PaymentStatus;
+  paidAt: string | null;
+  createdAt: string;
+};
+
+export type AdminOrderShipping = {
+  trackingNumber: string | null;
+  courier: string | null;
+  status: ShippingStatus;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+};
+
+export type AdminOrderDetail = AdminOrder & {
+  customerPhone: string | null;
+  subtotal: number;
+  shippingFee: number;
+  shippingAddress: ShippingAddress | null;
+  notes: string | null;
+  items: AdminOrderItem[];
+  payment: AdminOrderPayment | null;
+  shipping: AdminOrderShipping | null;
 };
 
 export type AdminCustomer = {
@@ -88,7 +129,3 @@ export type StatusBreakdown = {
   status: OrderStatus;
   count: number;
 };
-
-export function isOrderStatus(value: string): value is OrderStatus {
-  return (ORDER_STATUSES as readonly string[]).includes(value);
-}

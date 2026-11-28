@@ -1,10 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { pool } from "../lib/db/db";
 import { ensureAuthSchema } from "../lib/auth/schema";
 import { ensureAdminSchema } from "../lib/admin/schema";
 import { hashPassword } from "../lib/auth/password";
+import { calculateOrderTotals } from "../lib/orders/pricing";
 import type { OrderStatus } from "../types/admin";
+import type { PaymentStatus, ShippingStatus } from "../types/orders";
 
 /**
  * Optional demo data for the admin dashboard. Existing orders are left alone,
@@ -25,6 +27,7 @@ const statuses: OrderStatus[] = [
   "shipped",
   "shipped",
   "processing",
+  "confirmed",
   "processing",
   "pending",
   "pending",
@@ -32,6 +35,7 @@ const statuses: OrderStatus[] = [
   "delivered",
   "shipped",
   "processing",
+  "confirmed",
   "pending",
 ];
 
@@ -54,7 +58,8 @@ async function main() {
     id: number;
     name: string;
     price: string;
-  }>("SELECT id, name, price FROM products ORDER BY id ASC LIMIT 12");
+    image: string;
+  }>("SELECT id, name, price, image FROM products ORDER BY id ASC LIMIT 12");
 
   if (productsResult.rows.length === 0) {
     console.error("No products found. Run `npm run seed` first.");
@@ -66,6 +71,7 @@ async function main() {
     id: product.id,
     name: product.name,
     price: Number(product.price),
+    image: product.image,
   }));
 
   const passwordHash = await hashPassword("password123");
@@ -113,17 +119,53 @@ async function main() {
         };
       });
 
-      const total = items.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0
+      const totals = calculateOrderTotals(
+        items.reduce(
+          (sum, item) => sum + item.price * item.quantity,
+          0
+        )
       );
+
+      const paymentStatus: PaymentStatus =
+        status === "cancelled"
+          ? "refunded"
+          : status === "pending"
+            ? "pending"
+            : "paid";
+
+      const shippingStatus: ShippingStatus =
+        status === "delivered"
+          ? "delivered"
+          : status === "shipped"
+            ? "shipped"
+            : status === "processing" || status === "confirmed"
+              ? "preparing"
+              : status === "cancelled"
+                ? "cancelled"
+                : "pending";
+
+      const phone = `+95 9 10${String(index).padStart(2, "0")} 4567`;
+      const shippingAddress = {
+        fullName: customer.name,
+        phone,
+        line1: `${100 + index} Market Street`,
+        city: "Yangon",
+        state: "Yangon Region",
+        postalCode: "11011",
+        country: "Myanmar",
+      };
 
       const orderResult = await client.query<{ id: string }>(
         `INSERT INTO orders
            (id, order_number, user_id, customer_name, customer_email,
-            status, total, created_at, updated_at)
+            customer_phone, status, payment_status, payment_method,
+            subtotal, shipping_fee, total, shipping_address, access_token,
+            created_at, updated_at)
          VALUES
-           ($1, $2, $3, $4, $5, $6, $7, now() - ($8 || ' days')::interval, now())
+           ($1, $2, $3, $4, $5,
+            $6, $7, $8, 'cod',
+            $9, $10, $11, $12::jsonb, $13,
+            now() - ($14 || ' days')::interval, now())
          ON CONFLICT (order_number) DO NOTHING
          RETURNING id`,
         [
@@ -132,8 +174,14 @@ async function main() {
           customer.id,
           customer.name,
           customer.email,
+          phone,
           status,
-          total,
+          paymentStatus,
+          totals.subtotal,
+          totals.shippingFee,
+          totals.total,
+          JSON.stringify(shippingAddress),
+          randomBytes(24).toString("hex"),
           index,
         ]
       );
@@ -147,18 +195,59 @@ async function main() {
       for (const item of items) {
         await client.query(
           `INSERT INTO order_items
-             (id, order_id, product_id, product_name, quantity, unit_price)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+             (id, order_id, product_id, product_name, product_image,
+              quantity, unit_price, subtotal)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
             randomUUID(),
             orderId,
             item.id,
             item.name,
+            item.image,
             item.quantity,
             item.price,
+            Math.round(item.price * item.quantity * 100) / 100,
           ]
         );
       }
+
+      await client.query(
+        `INSERT INTO payments
+           (id, order_id, provider, amount, status, paid_at, created_at)
+         VALUES
+           ($1, $2, 'cod', $3, $4,
+            CASE WHEN $4 = 'paid'
+              THEN now() - ($5 || ' days')::interval
+              ELSE NULL
+            END,
+            now() - ($5 || ' days')::interval)`,
+        [randomUUID(), orderId, totals.total, paymentStatus, index]
+      );
+
+      await client.query(
+        `INSERT INTO shipping
+           (id, order_id, courier, tracking_number, status,
+            shipped_at, delivered_at, created_at)
+         VALUES
+           ($1, $2, $3, $4, $5,
+            CASE WHEN $5 IN ('shipped', 'delivered')
+              THEN now() - ($6 || ' days')::interval
+              ELSE NULL
+            END,
+            CASE WHEN $5 = 'delivered'
+              THEN now() - ($6 || ' days')::interval
+              ELSE NULL
+            END,
+            now() - ($6 || ' days')::interval)`,
+        [
+          randomUUID(),
+          orderId,
+          "ShopEase Express",
+          `SE-TRK-${1001 + index}`,
+          shippingStatus,
+          index,
+        ]
+      );
     }
 
     await client.query("COMMIT");

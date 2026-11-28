@@ -3,6 +3,7 @@ import { ArrowRight, ShoppingBag } from "lucide-react";
 
 import type { AdminOrder } from "@/types/admin";
 import StatusBadge from "@/components/admin/StatusBadge";
+import { PaymentStatusBadge } from "@/components/orders/StatusBadges";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -56,6 +57,7 @@ export default function RecentOrders({ orders }: { orders: AdminOrder[] }) {
                 <th className="px-5 py-3 font-semibold">Order</th>
                 <th className="px-5 py-3 font-semibold">Customer</th>
                 <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold">Payment</th>
                 <th className="px-5 py-3 text-right font-semibold">Total</th>
                 <th className="px-5 py-3 text-right font-semibold">Date</th>
               </tr>
@@ -85,6 +87,10 @@ export default function RecentOrders({ orders }: { orders: AdminOrder[] }) {
 
                   <td className="px-5 py-4">
                     <StatusBadge status={order.status} />
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <PaymentStatusBadge status={order.paymentStatus} />
                   </td>
 
                   <td className="px-5 py-4 text-right font-semibold text-gray-900">

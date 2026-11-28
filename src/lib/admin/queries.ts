@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { pool } from "@/lib/db/db";
 import { ensureAdminSchema } from "@/lib/admin/schema";
 import type { UserRole } from "@/lib/auth/types";
@@ -7,6 +9,7 @@ import {
   type AdminCategory,
   type AdminCustomer,
   type AdminOrder,
+  type AdminOrderDetail,
   type AdminProduct,
   type AdminStats,
   type OrderStatus,
@@ -15,11 +18,18 @@ import {
   type StatusBreakdown,
   type TopProduct,
 } from "@/types/admin";
+import type {
+  PaymentMethod,
+  PaymentStatus,
+  ShippingAddress,
+  ShippingStatus,
+} from "@/types/orders";
 
 export type {
   AdminCategory,
   AdminCustomer,
   AdminOrder,
+  AdminOrderDetail,
   AdminProduct,
   AdminStats,
   OrderStatus,
@@ -187,6 +197,8 @@ export async function listAdminOrders(
     customer_name: string;
     customer_email: string;
     status: OrderStatus;
+    payment_status: PaymentStatus;
+    payment_method: PaymentMethod;
     total: string;
     item_count: number;
     created_at: Date;
@@ -197,6 +209,8 @@ export async function listAdminOrders(
        o.customer_name,
        o.customer_email,
        o.status,
+       o.payment_status,
+       o.payment_method,
        o.total,
        COUNT(oi.id)::int AS item_count,
        o.created_at
@@ -215,6 +229,8 @@ export async function listAdminOrders(
     customerName: row.customer_name,
     customerEmail: row.customer_email,
     status: row.status,
+    paymentStatus: row.payment_status,
+    paymentMethod: row.payment_method,
     total: toNumber(row.total),
     itemCount: row.item_count,
     createdAt: row.created_at.toISOString(),
@@ -227,14 +243,334 @@ export async function updateAdminOrderStatus(
 ): Promise<boolean> {
   await ensureAdminSchema();
 
-  const result = await pool.query(
-    `UPDATE orders
-     SET status = $2, updated_at = now()
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const current = await client.query<{
+      payment_method: PaymentMethod;
+      payment_status: PaymentStatus;
+    }>(
+      `SELECT payment_method, payment_status
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    const order = current.rows[0];
+
+    if (!order) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+
+    // Cash on Delivery is collected when the parcel is delivered.
+    const markPaid =
+      status === "delivered" &&
+      order.payment_method === "cod" &&
+      order.payment_status === "pending";
+
+    // A cancelled order with an unpaid attempt should not stay "pending".
+    const markFailed =
+      status === "cancelled" && order.payment_status === "pending";
+
+    const paymentStatus: PaymentStatus = markPaid
+      ? "paid"
+      : markFailed
+        ? "failed"
+        : order.payment_status;
+
+    await client.query(
+      `UPDATE orders
+       SET status = $2, payment_status = $3, updated_at = now()
+       WHERE id = $1`,
+      [id, status, paymentStatus]
+    );
+
+    if (markPaid) {
+      await client.query(
+        `UPDATE payments
+         SET status = 'paid', paid_at = now(), updated_at = now()
+         WHERE order_id = $1 AND status = 'pending'`,
+        [id]
+      );
+    }
+
+    if (markFailed) {
+      await client.query(
+        `UPDATE payments
+         SET status = 'failed', updated_at = now()
+         WHERE order_id = $1 AND status = 'pending'`,
+        [id]
+      );
+    }
+
+    const shippingStatus: ShippingStatus =
+      status === "processing"
+        ? "preparing"
+        : status === "shipped"
+          ? "shipped"
+          : status === "delivered"
+            ? "delivered"
+            : status === "cancelled"
+              ? "cancelled"
+              : "pending";
+
+    await client.query(
+      `UPDATE shipping
+       SET status = $2,
+           shipped_at = CASE
+             WHEN $2 IN ('shipped', 'delivered') AND shipped_at IS NULL
+             THEN now()
+             ELSE shipped_at
+           END,
+           delivered_at = CASE
+             WHEN $2 = 'delivered' AND delivered_at IS NULL
+             THEN now()
+             ELSE delivered_at
+           END,
+           updated_at = now()
+       WHERE order_id = $1`,
+      [id, shippingStatus]
+    );
+
+    await client.query("COMMIT");
+    return true;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateAdminOrderPaymentStatus(
+  id: string,
+  paymentStatus: PaymentStatus
+): Promise<boolean> {
+  await ensureAdminSchema();
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const current = await client.query<{
+      id: string;
+      status: OrderStatus;
+      payment_method: PaymentMethod;
+      total: string;
+    }>(
+      `SELECT id, status, payment_method, total
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    const order = current.rows[0];
+
+    if (!order) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+
+    const nextOrderStatus: OrderStatus =
+      paymentStatus === "paid" && order.status === "pending"
+        ? "confirmed"
+        : order.status;
+
+    await client.query(
+      `UPDATE orders
+       SET payment_status = $2, status = $3, updated_at = now()
+       WHERE id = $1`,
+      [id, paymentStatus, nextOrderStatus]
+    );
+
+    const updatedPayment = await client.query(
+      `UPDATE payments
+       SET status = $2,
+           paid_at = CASE
+             WHEN $2 = 'paid' THEN COALESCE(paid_at, now())
+             WHEN $2 = 'refunded' THEN paid_at
+             ELSE NULL
+           END,
+           updated_at = now()
+       WHERE id = (
+         SELECT id FROM payments
+         WHERE order_id = $1
+         ORDER BY created_at DESC
+         LIMIT 1
+       )`,
+      [id, paymentStatus]
+    );
+
+    if ((updatedPayment.rowCount ?? 0) === 0) {
+      await client.query(
+        `INSERT INTO payments (id, order_id, provider, amount, status, paid_at)
+         VALUES (
+           $1, $2, $3, $4, $5,
+           CASE WHEN $5 = 'paid' THEN now() ELSE NULL END
+         )`,
+        [randomUUID(), id, order.payment_method, order.total, paymentStatus]
+      );
+    }
+
+    await client.query("COMMIT");
+    return true;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getAdminOrderDetail(
+  id: string
+): Promise<AdminOrderDetail | null> {
+  await ensureAdminSchema();
+
+  const orderResult = await pool.query<{
+    id: string;
+    order_number: string;
+    customer_name: string;
+    customer_email: string;
+    customer_phone: string | null;
+    status: OrderStatus;
+    payment_status: PaymentStatus;
+    payment_method: PaymentMethod;
+    subtotal: string;
+    shipping_fee: string;
+    total: string;
+    shipping_address: ShippingAddress | null;
+    notes: string | null;
+    created_at: Date;
+  }>(
+    `SELECT
+       id, order_number, customer_name, customer_email, customer_phone,
+       status, payment_status, payment_method, subtotal, shipping_fee,
+       total, shipping_address, notes, created_at
+     FROM orders
      WHERE id = $1`,
-    [id, status]
+    [id]
   );
 
-  return (result.rowCount ?? 0) > 0;
+  const order = orderResult.rows[0];
+
+  if (!order) {
+    return null;
+  }
+
+  const [itemsResult, paymentResult, shippingResult] = await Promise.all([
+    pool.query<{
+      id: string;
+      product_id: number | null;
+      product_name: string;
+      product_image: string | null;
+      quantity: number;
+      unit_price: string;
+      subtotal: string;
+    }>(
+      `SELECT
+         id, product_id, product_name, product_image,
+         quantity, unit_price, subtotal
+       FROM order_items
+       WHERE order_id = $1
+       ORDER BY product_name ASC`,
+      [id]
+    ),
+    pool.query<{
+      id: string;
+      provider: PaymentMethod;
+      transaction_id: string | null;
+      amount: string;
+      status: PaymentStatus;
+      paid_at: Date | null;
+      created_at: Date;
+    }>(
+      `SELECT
+         id, provider, transaction_id, amount, status, paid_at, created_at
+       FROM payments
+       WHERE order_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [id]
+    ),
+    pool.query<{
+      tracking_number: string | null;
+      courier: string | null;
+      status: ShippingStatus;
+      shipped_at: Date | null;
+      delivered_at: Date | null;
+    }>(
+      `SELECT tracking_number, courier, status, shipped_at, delivered_at
+       FROM shipping
+       WHERE order_id = $1
+       LIMIT 1`,
+      [id]
+    ),
+  ]);
+
+  const items = itemsResult.rows.map((row) => ({
+    id: row.id,
+    productId: row.product_id,
+    productName: row.product_name,
+    productImage: row.product_image,
+    quantity: row.quantity,
+    unitPrice: toNumber(row.unit_price),
+    subtotal: toNumber(row.subtotal),
+  }));
+
+  const paymentRow = paymentResult.rows[0];
+  const shippingRow = shippingResult.rows[0];
+
+  return {
+    id: order.id,
+    orderNumber: order.order_number,
+    customerName: order.customer_name,
+    customerEmail: order.customer_email,
+    customerPhone: order.customer_phone,
+    status: order.status,
+    paymentStatus: order.payment_status,
+    paymentMethod: order.payment_method,
+    subtotal: toNumber(order.subtotal),
+    shippingFee: toNumber(order.shipping_fee),
+    total: toNumber(order.total),
+    itemCount: items.length,
+    shippingAddress: order.shipping_address,
+    notes: order.notes,
+    createdAt: order.created_at.toISOString(),
+    items,
+    payment: paymentRow
+      ? {
+          id: paymentRow.id,
+          provider: paymentRow.provider,
+          transactionId: paymentRow.transaction_id,
+          amount: toNumber(paymentRow.amount),
+          status: paymentRow.status,
+          paidAt: paymentRow.paid_at
+            ? paymentRow.paid_at.toISOString()
+            : null,
+          createdAt: paymentRow.created_at.toISOString(),
+        }
+      : null,
+    shipping: shippingRow
+      ? {
+          trackingNumber: shippingRow.tracking_number,
+          courier: shippingRow.courier,
+          status: shippingRow.status,
+          shippedAt: shippingRow.shipped_at
+            ? shippingRow.shipped_at.toISOString()
+            : null,
+          deliveredAt: shippingRow.delivered_at
+            ? shippingRow.delivered_at.toISOString()
+            : null,
+        }
+      : null,
+  };
 }
 
 export async function listAdminCustomers(): Promise<AdminCustomer[]> {
@@ -256,7 +592,13 @@ export async function listAdminCustomers(): Promise<AdminCustomer[]> {
        u.role,
        COUNT(DISTINCT o.id)::int AS order_count,
        COALESCE(
-         SUM(CASE WHEN o.status <> 'cancelled' THEN o.total ELSE 0 END),
+         SUM(
+           CASE
+             WHEN o.payment_status = 'paid' AND o.status <> 'cancelled'
+             THEN o.total
+             ELSE 0
+           END
+         ),
          0
        ) AS total_spent,
        u.created_at
@@ -333,13 +675,17 @@ export async function getAdminStats(): Promise<AdminStats> {
     average_order_value: string;
   }>(
     `SELECT
-       (SELECT COALESCE(SUM(total), 0) FROM orders WHERE status <> 'cancelled') AS revenue,
+       (SELECT COALESCE(SUM(total), 0) FROM orders
+        WHERE payment_status = 'paid' AND status <> 'cancelled') AS revenue,
        (SELECT COUNT(*)::int FROM orders) AS orders,
-       (SELECT COUNT(*)::int FROM orders WHERE status IN ('pending', 'processing')) AS active_orders,
+       (SELECT COUNT(*)::int FROM orders
+        WHERE status IN ('pending', 'confirmed', 'processing')) AS active_orders,
        (SELECT COUNT(*)::int FROM users WHERE role = 'customer') AS customers,
-       (SELECT COUNT(*)::int FROM users WHERE role = 'customer' AND created_at >= now() - interval '30 days') AS new_customers,
+       (SELECT COUNT(*)::int FROM users
+        WHERE role = 'customer' AND created_at >= now() - interval '30 days') AS new_customers,
        (SELECT COUNT(*)::int FROM products) AS products,
-       (SELECT COALESCE(AVG(total), 0) FROM orders WHERE status <> 'cancelled') AS average_order_value`
+       (SELECT COALESCE(AVG(total), 0) FROM orders
+        WHERE payment_status = 'paid' AND status <> 'cancelled') AS average_order_value`
   );
 
   const row = result.rows[0];
@@ -374,6 +720,7 @@ export async function getRevenueSeries(days = 14): Promise<RevenuePoint[]> {
      ) AS d(day)
      LEFT JOIN orders o
        ON o.created_at::date = d.day
+      AND o.payment_status = 'paid'
       AND o.status <> 'cancelled'
      GROUP BY d.day
      ORDER BY d.day ASC`,
@@ -401,7 +748,7 @@ export async function getTopProducts(limit = 5): Promise<TopProduct[]> {
        SUM(oi.quantity * oi.unit_price) AS revenue
      FROM order_items oi
      JOIN orders o ON o.id = oi.order_id
-     WHERE o.status <> 'cancelled'
+     WHERE o.status <> 'cancelled' AND o.payment_status = 'paid'
      GROUP BY oi.product_name
      ORDER BY revenue DESC
      LIMIT $1`,

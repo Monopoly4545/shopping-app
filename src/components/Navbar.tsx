@@ -21,6 +21,7 @@ import {
   User,
   Heart,
   LogOut,
+  Package,
   ShieldCheck,
 } from "lucide-react";
 
@@ -210,6 +211,14 @@ export default function Navbar() {
 
                 {/* Account Link */}
                 <Link
+                  href="/orders"
+                  className="flex items-center gap-2 text-gray-700 hover:text-blue-600"
+                >
+                  <Package size={19} />
+                  <span>Orders</span>
+                </Link>
+
+                <Link
                   href="/account"
                   className="flex items-center gap-2 text-gray-700 hover:text-blue-600"
                 >
@@ -298,6 +307,15 @@ export default function Navbar() {
                         Admin
                       </Link>
                     )}
+
+                    <Link
+                      href="/orders"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-2 text-gray-700"
+                    >
+                      <Package size={18} />
+                      Orders
+                    </Link>
 
                     <Link
                       href="/account"

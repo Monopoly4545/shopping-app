@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   addCartItem,
+  clearCartItems,
   getCartItems,
   removeCartItem,
   setCartItemQuantity,
@@ -138,9 +139,24 @@ export async function DELETE(request: Request) {
     return unauthorised();
   }
 
-  const productId = toProductId(
-    new URL(request.url).searchParams.get("productId")
-  );
+  const url = new URL(request.url);
+
+  if (url.searchParams.get("all") === "true") {
+    try {
+      await clearCartItems(user.id);
+
+      return NextResponse.json({ items: [] });
+    } catch (error) {
+      console.error("Clear cart error:", error);
+
+      return NextResponse.json(
+        { error: "Failed to update your cart." },
+        { status: 500 }
+      );
+    }
+  }
+
+  const productId = toProductId(url.searchParams.get("productId"));
 
   if (productId === null) {
     return NextResponse.json(

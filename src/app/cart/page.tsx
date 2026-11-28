@@ -15,6 +15,10 @@ import {
 } from "lucide-react";
 
 import { useCart } from "@/context/CartContext";
+import {
+  FREE_SHIPPING_THRESHOLD,
+  calculateOrderTotals,
+} from "@/lib/orders/pricing";
 
 export default function CartPage() {
   const {
@@ -24,8 +28,7 @@ export default function CartPage() {
     cartTotal,
   } = useCart();
 
-  const shipping = cartTotal >= 100 || cartTotal === 0 ? 0 : 5.99;
-  const total = cartTotal + shipping;
+  const totals = calculateOrderTotals(cartTotal);
 
   if (cart.length === 0) {
     return (
@@ -40,9 +43,9 @@ export default function CartPage() {
         </h1>
 
         <p className="mt-3 max-w-md text-gray-500">
-          Looks like you haven't added anything to your
+          Looks like you have not added anything to your
           cart yet. Discover our amazing products and
-          find something you'll love.
+          find something you will love.
         </p>
 
         <Link
@@ -183,15 +186,15 @@ export default function CartPage() {
 
               <div className="flex justify-between text-gray-500">
                 <span>Subtotal</span>
-                <span>${cartTotal.toFixed(2)}</span>
+                <span>${totals.subtotal.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between text-gray-500">
                 <span>Shipping</span>
                 <span>
-                  {shipping === 0
+                  {totals.shippingFee === 0
                     ? "FREE"
-                    : `$${shipping.toFixed(2)}`}
+                    : `$${totals.shippingFee.toFixed(2)}`}
                 </span>
               </div>
 
@@ -199,29 +202,35 @@ export default function CartPage() {
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
                   <span className="text-blue-600">
-                    ${total.toFixed(2)}
+                    ${totals.total.toFixed(2)}
                   </span>
                 </div>
               </div>
 
             </div>
 
-            {cartTotal < 100 && (
+            {cartTotal < FREE_SHIPPING_THRESHOLD && (
               <p className="mt-5 rounded-xl bg-blue-50 p-3 text-sm text-blue-600">
-                Add ${(100 - cartTotal).toFixed(2)} more to
-                qualify for free shipping!
+                Add $
+                {(FREE_SHIPPING_THRESHOLD - cartTotal).toFixed(2)}{" "}
+                more to qualify for free shipping!
               </p>
             )}
 
-            <button
-              onClick={() =>
-                alert("Checkout functionality coming soon!")
-              }
+            <Link
+              href="/checkout"
               className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-4 font-semibold text-white transition hover:bg-blue-700"
             >
               Proceed to Checkout
               <ArrowRight size={18} />
-            </button>
+            </Link>
+
+            <Link
+              href="/orders/lookup"
+              className="mt-4 block text-center text-sm font-medium text-gray-500 hover:text-blue-600"
+            >
+              Track a guest order
+            </Link>
 
             <Link
               href="/shop"

@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Heart,
   Mail,
+  Package,
   ShieldCheck,
   ShoppingBag,
   UserRound,
@@ -13,6 +14,7 @@ import AccountLogoutButton from "@/components/account/AccountLogoutButton";
 import { ensureAuthSchema } from "@/lib/auth/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { pool } from "@/lib/db/db";
+import { ensureOrdersSchema } from "@/lib/orders/schema";
 import { ensureUserDataSchema } from "@/lib/user/schema";
 
 export const dynamic = "force-dynamic";
@@ -26,18 +28,22 @@ export default async function AccountPage() {
 
   await ensureAuthSchema();
   await ensureUserDataSchema();
+  await ensureOrdersSchema();
 
   const result = await pool.query<{
     created_at: Date;
     cart_count: number;
     favorite_count: number;
+    order_count: number;
   }>(
     `SELECT
        u.created_at,
        (SELECT COALESCE(SUM(quantity), 0)::int
         FROM cart_items WHERE user_id = u.id) AS cart_count,
        (SELECT COUNT(*)::int
-        FROM favorites WHERE user_id = u.id) AS favorite_count
+        FROM favorites WHERE user_id = u.id) AS favorite_count,
+       (SELECT COUNT(*)::int
+        FROM orders WHERE user_id = u.id) AS order_count
      FROM users u
      WHERE u.id = $1`,
     [user.id]
@@ -99,7 +105,7 @@ export default async function AccountPage() {
             <AccountLogoutButton />
           </div>
 
-          <div className="mt-8 grid gap-4 border-t border-gray-100 pt-6 sm:grid-cols-3">
+          <div className="mt-8 grid gap-4 border-t border-gray-100 pt-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex items-center gap-3">
               <CalendarDays className="text-blue-600" size={20} />
               <div>
@@ -135,11 +141,31 @@ export default async function AccountPage() {
                 </p>
               </div>
             </div>
+
+            <div className="flex items-center gap-3">
+              <Package className="text-blue-600" size={20} />
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400">
+                  Orders placed
+                </p>
+                <p className="font-semibold">{row?.order_count ?? 0}</p>
+              </div>
+            </div>
           </div>
         </section>
 
         {/* Quick links */}
-        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Link
+            href="/orders"
+            className="group rounded-2xl border border-gray-200 bg-white p-6 transition hover:border-blue-300 hover:shadow-md"
+          >
+            <Package className="mb-4 text-blue-600" size={26} />
+            <h3 className="font-bold">My orders</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Track deliveries and review past purchases.
+            </p>
+          </Link>
           <Link
             href="/cart"
             className="group rounded-2xl border border-gray-200 bg-white p-6 transition hover:border-blue-300 hover:shadow-md"

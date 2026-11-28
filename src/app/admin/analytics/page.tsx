@@ -53,7 +53,7 @@ export default async function AdminAnalyticsPage() {
         <StatCard
           label="Revenue"
           value={formatCurrency(stats.revenue)}
-          hint="All non-cancelled orders"
+          hint="Paid, non-cancelled orders"
           icon={CircleDollarSign}
           tone="green"
         />

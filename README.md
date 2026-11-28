@@ -72,6 +72,60 @@ skips itself if any orders already exist.
 - `users.role`, `orders` and `order_items` are created automatically on first
   use. Existing users are migrated to the `customer` role.
 
+## Checkout, orders and payments
+
+The storefront now has a complete Cash on Delivery checkout flow:
+
+- `/cart` → `/checkout` collects the delivery address and payment method.
+- `POST /api/orders` re-reads the cart from Postgres (or validates guest
+  items), calculates prices and shipping on the server, then creates the order,
+  order items, payment and shipping records in one transaction.
+- Product names, images and prices are snapshotted on `order_items`, so later
+  product edits never change a customer's history.
+- Signed-in customers see `/orders` and `/orders/[id]`. Guests can reopen their
+  order at `/orders/lookup` with the order number and the email used at
+  checkout; a secret, HTTP-only access cookie is issued only after both match.
+- Admin order management is at `/admin/orders`. Admins can change the order
+  status, verify/update the payment status, and see items, delivery address,
+  payment transaction and tracking details.
+
+### Payment methods
+
+Cash on Delivery (`cod`) works out of the box. Stripe, PayPal and KBZPay are
+listed in the checkout UI but disabled until a provider integration is added.
+Card numbers and CVV codes are never sent to or stored by this app; online
+providers must use their hosted checkout page.
+
+### Payment webhook
+
+`POST /api/webhooks` accepts signed provider callbacks. Set
+`PAYMENT_WEBHOOK_SECRET` in `.env.local`, then send:
+
+```json
+{
+  "provider": "stripe",
+  "transactionId": "pi_example_123",
+  "orderNumber": "SE-100001",
+  "amount": 42.5,
+  "status": "paid"
+}
+```
+
+The `x-payment-signature` header must be the hex HMAC-SHA256 of the raw request
+body using that secret. The handler verifies the signature and amount, updates
+the payment and order idempotently, and confirms a pending order when payment
+succeeds.
+
+### Status model
+
+- Payment: `pending`, `paid`, `failed`, `refunded`
+- Order: `pending`, `confirmed`, `processing`, `shipped`, `delivered`,
+  `cancelled`
+- Shipping: `pending`, `preparing`, `shipped`, `delivered`, `cancelled`
+
+Cash on Delivery orders become `paid` automatically when an admin marks them
+delivered. Online payments become `paid` through the signed webhook.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

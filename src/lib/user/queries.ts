@@ -125,6 +125,12 @@ export async function removeCartItem(
   );
 }
 
+export async function clearCartItems(userId: string): Promise<void> {
+  await ensureUserDataSchema();
+
+  await pool.query("DELETE FROM cart_items WHERE user_id = $1", [userId]);
+}
+
 /**
  * Adds the items a guest collected before signing in. Products that no longer
  * exist are skipped and duplicate products are combined.

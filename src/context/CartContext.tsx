@@ -24,6 +24,7 @@ interface CartContextType {
   addToCart: (product: Product) => void;
   removeFromCart: (id: number) => void;
   updateQuantity: (id: number, quantity: number) => void;
+  clearCart: () => void;
   cartCount: number;
   cartTotal: number;
   loading: boolean;
@@ -241,6 +242,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [sendMutation]
   );
 
+  const clearCart = useCallback(() => {
+    setCart([]);
+
+    if (modeRef.current === "account") {
+      void sendMutation("DELETE", "/api/cart?all=true");
+    }
+  }, [sendMutation]);
+
   const cartCount = cart.reduce(
     (total, item) => total + item.quantity,
     0
@@ -259,6 +268,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         addToCart,
         removeFromCart,
         updateQuantity,
+        clearCart,
         cartCount,
         cartTotal,
         loading: mode === "loading",
